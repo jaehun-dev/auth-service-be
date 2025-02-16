@@ -36,6 +36,15 @@ export class UsersService {
     return user
   }
 
+  async findOneByEmail(email: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { email } })
+
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`)
+    }
+    return user
+  }
+
   async update(id: number, data: UpdateUserDto): Promise<User> {
     const parsedData = UpdateUserSchema.safeParse(data)
 
