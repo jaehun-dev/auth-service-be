@@ -1,7 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-
+import * as bcrypt from 'bcrypt'
 import { UsersService } from '../users/users.service'
+import { SignUpDto } from './dto/sign-up.dto'
+import { HASH_ROUNDS } from './constants/hash-round.constant'
+import { jwtConstants } from './constants/jwt.constant'
 
 @Injectable()
 export class AuthService {
@@ -10,17 +13,37 @@ export class AuthService {
     private jwtService: JwtService
   ) {}
 
-  async signIn(email: string, password: string): Promise<{ access_token: string }> {
-    const user = await this.usersService.findOneByEmail(email)
+  async signUp(user: SignUpDto) {
+    const hash = await bcrypt.hash(user.password, HASH_ROUNDS)
 
-    if (user?.password !== password) {
-      throw new UnauthorizedException('Invalid credentials')
-    }
-
-    const payload = { sub: user.id, email: user.email }
+    const newUser = await this.usersService.create({
+      ...user,
+      password: hash,
+    })
 
     return {
-      access_token: await this.jwtService.signAsync(payload),
+      accessToken: this.jwtService.sign(
+        {
+          email: newUser.email,
+          sub: newUser.id,
+          type: 'REFRESH',
+        },
+        {
+          secret: jwtConstants.secret,
+          expiresIn: jwtConstants.expiresIn.access,
+        }
+      ),
+      refreshToken: this.jwtService.sign(
+        {
+          email: newUser.email,
+          sub: newUser.id,
+          type: 'ACCESS',
+        },
+        {
+          secret: jwtConstants.secret,
+          expiresIn: jwtConstants.expiresIn.refresh,
+        }
+      ),
     }
   }
 }
