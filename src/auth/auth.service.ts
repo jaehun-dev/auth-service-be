@@ -27,7 +27,7 @@ export class AuthService {
         {
           email: newUser.email,
           sub: newUser.id,
-          type: 'REFRESH',
+          type: 'ACCESS',
         },
         {
           secret: jwtConstants.secret,
@@ -38,7 +38,7 @@ export class AuthService {
         {
           email: newUser.email,
           sub: newUser.id,
-          type: 'ACCESS',
+          type: 'REFRESH',
         },
         {
           secret: jwtConstants.secret,
@@ -56,7 +56,7 @@ export class AuthService {
         {
           email: user.email,
           sub: user.id,
-          type: 'REFRESH',
+          type: 'ACCESS',
         },
         {
           secret: jwtConstants.secret,
@@ -67,7 +67,7 @@ export class AuthService {
         {
           email: user.email,
           sub: user.id,
-          type: 'ACCESS',
+          type: 'REFRESH',
         },
         {
           secret: jwtConstants.secret,
@@ -75,5 +75,29 @@ export class AuthService {
         }
       ),
     }
+  }
+
+  async refreshToken(token: string) {
+    const payload = this.jwtService.verify(token, {
+      secret: jwtConstants.secret,
+      complete: true,
+    })
+
+    return this.jwtService.sign(payload, {
+      secret: jwtConstants.secret,
+      expiresIn: jwtConstants.expiresIn.refresh,
+    })
+  }
+
+  async accessToken(token: string) {
+    const payload = this.jwtService.verify(token, {
+      secret: jwtConstants.secret,
+      complete: true,
+    })
+
+    return this.jwtService.sign(payload, {
+      secret: jwtConstants.secret,
+      expiresIn: jwtConstants.expiresIn.access,
+    })
   }
 }

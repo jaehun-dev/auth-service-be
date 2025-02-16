@@ -1,15 +1,16 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Reflector } from '@nestjs/core'
-import { Request } from 'express'
 
 import { jwtConstants } from '../constants/jwt.constant'
 import { IS_PUBLIC_KEY } from 'src/shared/decorator/is-public.decorator'
+import { UsersService } from 'src/users/users.service'
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class BearerAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
     private readonly reflector: Reflector
   ) {}
 
@@ -24,27 +25,34 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest()
-    const token = this.extractTokenFromHeader(request)
+    const rawToken = request.headers['authorization']
 
-    if (!token) {
+    if (!rawToken) {
       throw new UnauthorizedException('Unauthorized: No token provided')
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: jwtConstants.secret,
-      })
+    const splitedToken = rawToken.split(' ')
 
-      request['user'] = payload
-    } catch {
-      throw new UnauthorizedException('Unauthorized: Invalid token')
+    if (splitedToken.length !== 2) {
+      throw new UnauthorizedException('Invalid token: length is not 2')
     }
+
+    const [type, token] = splitedToken
+
+    if (type !== 'Bearer') {
+      throw new UnauthorizedException('Invalid token: type is not Bearer')
+    }
+
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: jwtConstants.secret,
+    })
+
+    const user = await this.usersService.findOneByEmail(payload.email)
+
+    request['user'] = user
+    request['token'] = token
+    request['tokenType'] = type
+
     return true
-  }
-
-  private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? []
-
-    return type === 'Bearer' ? token : undefined
   }
 }

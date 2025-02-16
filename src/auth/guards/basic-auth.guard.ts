@@ -41,8 +41,6 @@ export class BasicAuthGuard implements CanActivate {
 
     const user = await this.usersService.findOneByEmail(email)
 
-    console.log(user)
-
     if (!(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Unauthorized: Invalid password')
     }
