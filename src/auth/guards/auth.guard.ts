@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt'
 import { Reflector } from '@nestjs/core'
 import { Request } from 'express'
 
-import { jwtConstants } from './constants/jwt.constant'
+import { jwtConstants } from '../constants/jwt.constant'
 import { IS_PUBLIC_KEY } from 'src/shared/decorator/is-public.decorator'
 
 @Injectable()
