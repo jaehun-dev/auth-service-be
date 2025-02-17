@@ -1,46 +1,62 @@
-import { Body, Controller, Headers, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Headers, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { Request, Response } from 'express'
 
 import { AuthService } from './auth.service'
-import { SignUpDto } from './dto/sign-up.dto'
-import { IsPublic } from 'src/shared/decorator/is-public.decorator'
-import { RefreshTokenGuard } from './guards/refresh-token.guard'
+import { RegisterDto } from './dto/register.dto'
 import { BasicAuthGuard } from './guards/basic-auth.guard'
+import { RefreshTokenGuard } from './guards/refresh-token.guard'
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @IsPublic()
-  @Post('sign-up')
-  signUp(@Body() signUpDto: SignUpDto) {
-    return this.authService.signUp(signUpDto)
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
+    const { accessToken, refreshToken } = await this.authService.register(registerDto)
+
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    })
+
+    return res.json({ accessToken })
   }
 
-  @IsPublic()
-  @Post('sign-in')
+  @Post('login')
   @UseGuards(BasicAuthGuard)
-  signIn(@Headers('authorization') rawToken: string) {
-    const [, token] = rawToken.split(' ')
-    const [email, password] = Buffer.from(token, 'base64').toString('utf-8').split(':')
+  async login(@Headers('authorization') headers, @Res() res: Response) {
+    const rawToken = this.authService.extractTokenFromHeader(headers)
 
-    return this.authService.signIn({ email, password })
+    const [email, password] = this.authService.decodeBasicToken(rawToken)
+
+    const credentials = await this.authService.validateUser(email, password)
+
+    const { accessToken, refreshToken } = await this.authService.login(credentials)
+
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    })
+
+    return res.json({ accessToken })
   }
 
-  @IsPublic()
-  @Post('token/refresh')
-  @UseGuards(RefreshTokenGuard)
-  refreshToken(@Headers('authorization') rawToken: string) {
-    const [, token] = rawToken.split(' ')
+  @Post('logout')
+  logout(@Res() res: Response) {
+    res.clearCookie('refresh_token')
 
-    return this.authService.refreshToken(token)
+    return res.json({ message: 'Logged Out' })
   }
 
-  @IsPublic()
-  @Post('token/access')
+  @Post('session')
   @UseGuards(RefreshTokenGuard)
-  accessToken(@Headers('authorization') rawToken: string) {
-    const [, token] = rawToken.split(' ')
+  async session(@Req() req: Request, @Res() res: Response) {
+    const refreshToken = req.cookies.refreshToken
 
-    return this.authService.accessToken(token)
+    const accessToken = this.authService.session(refreshToken)
+
+    return res.json({ accessToken })
   }
 }

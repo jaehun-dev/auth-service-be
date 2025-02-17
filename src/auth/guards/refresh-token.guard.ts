@@ -1,22 +1,14 @@
-import { Injectable } from '@nestjs/common'
-import { ExecutionContext } from '@nestjs/common'
-import { UnauthorizedException } from '@nestjs/common'
-
-import { BearerAuthGuard } from './bearer-auth.guard'
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common'
 
 @Injectable()
-export class RefreshTokenGuard extends BearerAuthGuard {
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    await super.canActivate(context)
-
+export class RefreshTokenGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest()
 
-    if (req.isRoutePublic) {
-      return true
-    }
+    const refreshToken = req.cookies?.refreshToken
 
-    if (req.tokenType !== 'REFRESH') {
-      throw new UnauthorizedException('Unauthorized: Invalid token type')
+    if (refreshToken == null) {
+      throw new UnauthorizedException('Refresh token is missing')
     }
 
     return true
